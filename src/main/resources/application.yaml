@@ -1,0 +1,10 @@
+logging:
+  level:
+    org.springframework: ERROR
+    io.github.coenraadhuman.gib: ERROR
+  pattern:
+    console: "%green(%level) %msg%n"
+
+spring:
+  main:
+    banneff"r-mode: "off"
