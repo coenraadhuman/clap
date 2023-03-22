@@ -24,6 +24,7 @@ public class CommandRunnerBuilder {
 
   private final Filer filer;
   private final String packageName;
+  private final String projectDescription;
   private final Map<String, CommandArgumentClassContainer> commandArguments;
   private final List<CommandContainer> commands;
 
@@ -43,13 +44,14 @@ public class CommandRunnerBuilder {
                             .addParameter(String[].class, "args")
                             .addAnnotation(Override.class);
 
+    executeMethod.beginControlFlow("try");
     executeMethod.addStatement(String.format("var mapper = new %s.mapper.ClapArgumentMapper()", packageName));
     executeMethod.addStatement("var argumentResult = mapper.map(args)");
     executeMethod.addStatement("var executed = false");
 
     executeMethod.beginControlFlow("if (argumentResult == null)")
-        // Todo: add print function that will print the help menu for the main application.
-        .addStatement("System.exit(1)")
+        .addStatement("System.out.println(toString())")
+        .addStatement("throw new RuntimeException(\"Arguments mapper result was null\")")
         .endControlFlow();
 
     var sprintConstructor = MethodSpec.constructorBuilder()
@@ -85,28 +87,35 @@ public class CommandRunnerBuilder {
           .addStatement("executed = true")
           .nextControlFlow("catch (Exception e)")
           .addStatement("System.out.println(argument)")
-          .addStatement("System.exit(1)")
+          .addStatement("throw e")
           .endControlFlow()
           .endControlFlow();
     });
 
     executeMethod.beginControlFlow("if (!executed)")
-        .addStatement("System.exit(1)")
+        .addStatement("System.out.println(toString())")
+        .addStatement("throw new RuntimeException(\"Did not execute any command\")")
         .endControlFlow();
 
     if (isSpring) {
       clapCommandMapper.addMethod(sprintConstructor.build());
     }
 
+    executeMethod.nextControlFlow("catch (Exception e)")
+        .addStatement("System.out.println(String.format(\"\\nError: %s\", e.getMessage()))")
+        .addStatement("System.exit(1)")
+        .endControlFlow();
+
     clapCommandMapper.addMethod(executeMethod.build());
+
+    var helpMethod = createToString();
+
+    clapCommandMapper.addMethod(helpMethod.build());
 
     var javaFile = JavaFile.builder(String.format("%s.runner", packageName), clapCommandMapper.build()).build();
 
-    try {
-      javaFile.writeTo(filer);
-    } catch (Exception e) {
-      // Todo: for some reason this is invoked twice?
-    }
+
+    javaFile.writeTo(filer);
   }
 
   private boolean usingSpring(List<CommandContainer> commands) {
@@ -138,6 +147,36 @@ public class CommandRunnerBuilder {
       return retrieved.get();
     }
     throw new RuntimeException("Argument must have associated command");
+  }
+
+  private MethodSpec.Builder createToString() {
+    var methodBuilder = MethodSpec.methodBuilder("toString")
+                            .addModifiers(Modifier.PUBLIC)
+                            .addAnnotation(Override.class)
+                            .addStatement("var help = new StringBuilder()");
+
+    if (projectDescription.length() > 0) {
+      methodBuilder.addStatement(String.format("help.append(\"%s\\n\\n\")", projectDescription));
+    }
+
+    methodBuilder.addStatement("help.append(\"Commands:\\n\")");
+
+    commandArguments.forEach((key, commandArgument) -> {
+      var argumentInterface = ClassName.get((TypeElement) commandArgument.commandArgument().element()).canonicalName();
+      var command = findCommand(argumentInterface);
+
+      // Todo: make this dynamic and calculate width that would fit given information.
+      methodBuilder.addStatement(
+          "help.append(String.format(\"  %-25s %s\", \"" + commandArgument.commandArgument().annotation().input()
+              + "\",\"" + command.command().description() + "\\n\"))"
+      );
+    });
+
+    methodBuilder
+        .addStatement("return help.toString()")
+        .returns(String.class);
+
+    return methodBuilder;
   }
 
 }

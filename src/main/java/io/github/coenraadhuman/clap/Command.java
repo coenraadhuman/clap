@@ -13,4 +13,6 @@ public @interface Command {
 
   String componentModel();
 
+  String description();
+
 }

@@ -147,11 +147,13 @@ public class ClapProcessor extends AbstractProcessor {
   @Override
   public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
     var projectPackage = "io.github.coenraadhuman.clap";
+    var projectDescription = "";
 
     var annotations = roundEnvironment.getElementsAnnotatedWith(ClapApplication.class);
 
     for (var foundAnnotation : annotations) {
       projectPackage = elements.getPackageOf(foundAnnotation).getQualifiedName().toString();
+      projectDescription = foundAnnotation.getAnnotation(ClapApplication.class).description();
     }
 
     var commandArguments = new HashMap<String, CommandArgumentClassContainer>();
@@ -170,6 +172,7 @@ public class ClapProcessor extends AbstractProcessor {
       var runner = new CommandRunnerBuilder(
           filer,
           projectPackage,
+          projectDescription,
           commandArguments,
           commands
       );
