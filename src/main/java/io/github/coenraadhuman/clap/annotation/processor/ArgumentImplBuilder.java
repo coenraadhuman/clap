@@ -6,6 +6,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.model.CommandArgumentClassContainer;
+import io.github.coenraadhuman.clap.model.StringOptionContainer;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.processing.Filer;
@@ -32,18 +33,22 @@ public class ArgumentImplBuilder {
       FieldSpec.Builder field;
       MethodSpec.Builder method = MethodSpec.methodBuilder(option.element().getSimpleName().toString())
                                       .addModifiers(Modifier.PUBLIC)
-                                      .addAnnotation(Override.class)
-                                      .addStatement(String.format(
-                                          "return %s", option.element().getSimpleName().toString()
-                                      ));
+                                      .addAnnotation(Override.class);
 
       if (option.annotation().providesValue()) {
         // Todo: avoid direct access temp work around:
-        field = FieldSpec.builder(String.class, option.element().getSimpleName().toString(), Modifier.PUBLIC);
-        method.returns(String.class);
+        method.addStatement(String.format(
+                "return %s.value()", option.element().getSimpleName().toString()
+            ))
+            .returns(String.class);
+        field = FieldSpec.builder(StringOptionContainer.class, option.element().getSimpleName().toString(),
+            Modifier.PUBLIC);
       } else {
         field = FieldSpec.builder(TypeName.BOOLEAN, option.element().getSimpleName().toString(), Modifier.PUBLIC);
-        method.returns(TypeName.BOOLEAN);
+        method.addStatement(String.format(
+                "return %s", option.element().getSimpleName().toString()
+            ))
+            .returns(TypeName.BOOLEAN);
       }
 
       commandArgumentClass.addField(field.build());
@@ -66,14 +71,14 @@ public class ArgumentImplBuilder {
                                 "help.append(\"Actions for " + commandArgument.commandArgument().annotation().input()
                                     + "\\n\\n\")");
 
-    // Todo: add usage in here.
+    methodBuilder.addStatement("help.append(\"Options:\\n\")");
 
     for (var option : commandArgument.options()) {
       // Todo: make this dynamic and calculate width that would fit given information.
       methodBuilder.addStatement(
-          "help.append(String.format(\"%-5s%-20s %s\", \"" + option.annotation().shortInput() + ",\",\""
+          "help.append(String.format(\"  %-5s%-20s %s\", \"" + option.annotation().shortInput() + ",\",\""
               + option.annotation().longInput()
-              + "\",\"" + option.annotation().info() + "\\n\"))"
+              + "\",\"" + option.annotation().description() + "\\n\"))"
       );
     }
 

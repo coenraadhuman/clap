@@ -44,13 +44,24 @@ public class CommandMapperBuilder {
 
       for (var option : commandArgument.options()) {
         if (option.annotation().providesValue()) {
-          mapMethod.addStatement(String.format("command.%s = findArgumentProvidedValue(args, \"%s\", \"%s\")",
+          mapMethod.addStatement(String.format("command.%s = findOptionProvidedValue(args, \"%s\", \"%s\")",
               option.element().getSimpleName().toString(),
               option.annotation().shortInput(),
               option.annotation().longInput()
           ));
+          mapMethod.beginControlFlow(
+                  String.format("if (command.%s.provided() && command.%s.value() == null)",
+                      option.element().getSimpleName().toString(),
+                      option.element().getSimpleName().toString()
+                  ))
+              .addStatement("System.out.println(command)")
+              .addStatement(String.format("throw new RuntimeException(\"Value not provided for option: %s / %s\")",
+                  option.annotation().shortInput(),
+                  option.annotation().longInput()
+              ))
+              .endControlFlow();
         } else {
-          mapMethod.addStatement(String.format("command.%s = findArgument(args, \"%s\", \"%s\")",
+          mapMethod.addStatement(String.format("command.%s = findOption(args, \"%s\", \"%s\")",
               option.element().getSimpleName().toString(),
               option.annotation().shortInput(),
               option.annotation().longInput()
@@ -74,11 +85,7 @@ public class CommandMapperBuilder {
 
     var javaFile = JavaFile.builder(packageName, clapCommandMapper.build()).build();
 
-    try {
-      javaFile.writeTo(filer);
-    } catch (Exception e) {
-      // Todo: for some reason this is invoked twice?
-    }
+    javaFile.writeTo(filer);
   }
 
 }
