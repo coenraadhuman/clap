@@ -11,7 +11,7 @@ public @interface Command {
 
   Class<?> argument();
 
-  String componentModel();
+  String componentModel() default "";
 
   String description();
 

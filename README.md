@@ -54,7 +54,7 @@ Now to create your command-line argument and command it's respective command:
 public interface VersionCommandArgument extends CommandArgumentProcessor {
 
     @Option(
-        info = "Specify the path of the git project.", // Description of option.
+        description = "Specify the path of the git project.", // Description of option.
         shortInput = "-pa", // Short option to be used by end-user.
         longInput = "--path", // Long option to be used by end-user.
         providesValue = true // Indicates whether option is a flag or provides a value on next argument provided to application.
@@ -62,7 +62,7 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
     String path();
 
     @Option(
-        info = "Bump current project version with a major increment.",
+        description = "Bump current project version with a major increment.",
         shortInput = "-m",
         longInput = "--major",
         providesValue = false
@@ -70,7 +70,7 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
     boolean major();
 
     @Option(
-        info = "Bump current project version with a minor increment.",
+        description = "Bump current project version with a minor increment.",
         shortInput = "-mi",
         longInput = "--minor",
         providesValue = false
@@ -78,7 +78,7 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
     boolean minor();
 
     @Option(
-        info = "Bump current project version with a patch increment.",
+        description = "Bump current project version with a patch increment.",
         shortInput = "-p",
         longInput = "--patch",
         providesValue = false
@@ -86,7 +86,7 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
     boolean patch();
 
     @Option(
-        info = "Mechanism to provide the latest commit made to be included in project version calculation.",
+        description = "Mechanism to provide the latest commit made to be included in project version calculation.",
         shortInput = "-c",
         longInput = "--git-hook-commit",
         providesValue = true
@@ -96,6 +96,8 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
 }
 ```
 
+Executing the command-line argument parser:
+
 #### Command with Spring DI:
 
 ```java
@@ -104,7 +106,8 @@ public interface VersionCommandArgument extends CommandArgumentProcessor {
 @RequiredArgsConstructor
 @Command(
     argument = VersionCommandArgument.class, // Class of the argument the command uses.
-    componentModel = "spring" // Indicates if Spring injection should be used.
+    componentModel = "spring", // Indicates if Spring injection should be used.
+    description = "Command to calculate the semantic version based on the conventional commits of the current branch."
 )
 // Must extend CommandProcessor, generated source relies on it.
 public final class VersionCommand implements CommandProcessor<VersionCommandArgument> {
@@ -144,7 +147,8 @@ public class ArgumentRunner implements CommandLineRunner {
 ```java
 
 @Command(
-    argument = VersionCommandArgument.class // Class of the argument the command uses.
+    argument = VersionCommandArgument.class, // Class of the argument the command uses.
+    description = "Command to calculate the semantic version based on the conventional commits of the current branch."
 )
 // Must extend CommandProcessor, generated source relies on it.
 public final class VersionCommand implements CommandProcessor<VersionCommandArgument> {
@@ -161,6 +165,8 @@ public final class VersionCommand implements CommandProcessor<VersionCommandArgu
 
 #### Runner without dependency injection:
 
+Note: this would most likely just be your main method, as seen at `Main Application Annotation` code.
+
 ```java
 
 @Slf4j
@@ -170,6 +176,43 @@ public class ArgumentRunner implements CommandLineRunner {
 
     @Override
     public void run(String[] arguments) {
+        runner.execute(arguments);
+    }
+
+}
+```
+
+Finally, add main application annotation for help command details and code generation package identification:
+
+#### Main Application Annotation
+
+```java
+
+@ClapApplication(
+    description = "Gibberish git history analyser, a terminal utility that uses conventional commits to analyse your git history."
+)
+@SpringBootApplication
+public class Application {
+
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+
+}
+```
+
+or
+
+```java
+
+@ClapApplication(
+    description = "Gibberish git history analyser, a terminal utility that uses conventional commits to analyse your git history."
+)
+public class Application {
+
+    private final CommandRunner runner = new ClapCommandRunner();
+
+    public static void main(String[] args) {
         runner.execute(arguments);
     }
 
