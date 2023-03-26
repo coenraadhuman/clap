@@ -1,4 +1,4 @@
-package io.github.coenraadhuman.clap.annotation.processor.file.writer;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer.impl;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -6,24 +6,23 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandArgumentProcessor;
 import io.github.coenraadhuman.clap.CommandMapper;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.MultipleCommandsFileWriterBase;
 import io.github.coenraadhuman.clap.mapper.CommandMapperBase;
-import io.github.coenraadhuman.clap.model.CommandInformation;
+import io.github.coenraadhuman.clap.model.ProjectInformation;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.io.IOException;
-import java.util.List;
 
 @RequiredArgsConstructor
-public class CommandMapperFileWriter {
+public class CommandMapperFileWriterImpl extends MultipleCommandsFileWriterBase {
 
   private final Filer filer;
-  private final String packageName;
-  private final List<CommandInformation> commands;
 
-  public void generate() throws IOException {
+  @Override
+  protected void process(ProjectInformation projectInformation) throws IOException {
     var mapMethod = MethodSpec.methodBuilder("map")
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(String[].class, "args")
@@ -34,7 +33,7 @@ public class CommandMapperFileWriter {
         .addStatement("return null")
         .endControlFlow();
 
-    commands.forEach(command -> {
+    projectInformation.commands().forEach(command -> {
       mapMethod.beginControlFlow(
           String.format("if (\"%s\".equals(args[0]))", command.argument().annotation().input())
       );
@@ -83,7 +82,10 @@ public class CommandMapperFileWriter {
                                 .addMethod(mapMethod.build());
 
 
-    var javaFile = JavaFile.builder(packageName, clapCommandMapper.build()).build();
+    var javaFile = JavaFile.builder(
+        String.format("%s.mapper", projectInformation.projectPackage()),
+        clapCommandMapper.build()
+    ).build();
 
     javaFile.writeTo(filer);
   }

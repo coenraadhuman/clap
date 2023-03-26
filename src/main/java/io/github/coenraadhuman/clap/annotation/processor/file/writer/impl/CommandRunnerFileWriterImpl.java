@@ -1,4 +1,4 @@
-package io.github.coenraadhuman.clap.annotation.processor.file.writer;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer.impl;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -6,7 +6,9 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandRunner;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.MultipleCommandsFileWriterBase;
 import io.github.coenraadhuman.clap.model.CommandInformation;
+import io.github.coenraadhuman.clap.model.ProjectInformation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -17,15 +19,13 @@ import java.io.IOException;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class CommandRunnerFileWriter {
+public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase {
 
   private final Filer filer;
-  private final String packageName;
-  private final String projectDescription;
-  private final List<CommandInformation> commands;
 
-  public void generate() throws IOException {
-    var isSpring = usingSpring(commands);
+  @Override
+  protected void process(ProjectInformation projectInformation) throws IOException {
+    var isSpring = usingSpring(projectInformation.commands());
 
     var clapCommandMapper = TypeSpec.classBuilder("ClapCommandRunner")
                                 .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -41,7 +41,11 @@ public class CommandRunnerFileWriter {
                             .addAnnotation(Override.class);
 
     executeMethod.beginControlFlow("try");
-    executeMethod.addStatement(String.format("var mapper = new %s.mapper.ClapArgumentMapper()", packageName));
+
+    executeMethod.addStatement(
+        String.format("var mapper = new %s.mapper.ClapArgumentMapper()", projectInformation.projectPackage())
+    );
+
     executeMethod.addStatement("var argumentResult = mapper.map(args)");
     executeMethod.addStatement("var executed = false");
 
@@ -53,7 +57,7 @@ public class CommandRunnerFileWriter {
     var sprintConstructor = MethodSpec.constructorBuilder()
                                 .addModifiers(Modifier.PUBLIC);
 
-    commands.forEach(command -> {
+    projectInformation.commands().forEach(command -> {
       var commandVariableName =
           ClassName.get((TypeElement) command.command().element()).simpleName().substring(0, 1).toLowerCase()
               + ClassName.get((TypeElement) command.command().element()).simpleName().substring(1);
@@ -104,11 +108,13 @@ public class CommandRunnerFileWriter {
 
     clapCommandMapper.addMethod(executeMethod.build());
 
-    var helpMethod = createToString();
+    var helpMethod = createToString(projectInformation);
 
     clapCommandMapper.addMethod(helpMethod.build());
 
-    var javaFile = JavaFile.builder(String.format("%s.runner", packageName), clapCommandMapper.build()).build();
+    var javaFile = JavaFile.builder(
+        String.format("%s.runner", projectInformation.projectPackage()), clapCommandMapper.build()
+    ).build();
 
 
     javaFile.writeTo(filer);
@@ -124,19 +130,19 @@ public class CommandRunnerFileWriter {
     return false;
   }
 
-  private MethodSpec.Builder createToString() {
+  private MethodSpec.Builder createToString(ProjectInformation projectInformation) {
     var methodBuilder = MethodSpec.methodBuilder("toString")
                             .addModifiers(Modifier.PUBLIC)
                             .addAnnotation(Override.class)
                             .addStatement("var help = new StringBuilder()");
 
-    if (projectDescription.length() > 0) {
-      methodBuilder.addStatement(String.format("help.append(\"%s\\n\\n\")", projectDescription));
+    if (projectInformation.projectDescription().length() > 0) {
+      methodBuilder.addStatement(String.format("help.append(\"%s\\n\\n\")", projectInformation.projectDescription()));
     }
 
     methodBuilder.addStatement("help.append(\"Commands:\\n\")");
 
-    commands.forEach(command -> {
+    projectInformation.commands().forEach(command -> {
       // Todo: make this dynamic and calculate width that would fit given information.
       methodBuilder.addStatement(
           "help.append(String.format(\"  %-25s %s\", \"" + command.argument().annotation().input()

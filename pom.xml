@@ -5,7 +5,7 @@
 
     <groupId>io.github.coenraadhuman</groupId>
     <artifactId>clap</artifactId>
-    <version>0.3.2</version>
+    <version>0.3.3</version>
     <name>clap</name>
     <description>Commandline argument processor for Java</description>
     <url>https://github.com/coenraadhuman/clap</url>

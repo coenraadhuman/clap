@@ -19,6 +19,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -157,6 +158,10 @@ public class ProjectInformationReaderImpl implements ProjectInformationReader {
           }
         }
       }
+
+      arguments.get(key)
+          .options()
+          .sort(Comparator.comparing(optionElement -> optionElement.annotation().shortInput()));
     }
 
     return arguments;

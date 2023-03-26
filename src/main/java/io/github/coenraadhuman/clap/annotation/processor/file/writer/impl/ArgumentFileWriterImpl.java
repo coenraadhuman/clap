@@ -1,33 +1,35 @@
-package io.github.coenraadhuman.clap.annotation.processor.file.writer;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer.impl;
 
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.IndividualCommandFileWriterBase;
 import io.github.coenraadhuman.clap.model.CommandInformation;
 import io.github.coenraadhuman.clap.model.StringOption;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.TypeMirror;
+import javax.lang.model.element.TypeElement;
 import java.io.IOException;
 
 @RequiredArgsConstructor
-public class ArgumentFileWriter {
+public class ArgumentFileWriterImpl extends IndividualCommandFileWriterBase {
 
   private final Filer filer;
-  private final String className;
-  private final String packageName;
 
-  private final TypeMirror implement;
-  private final CommandInformation command;
+  @Override
+  protected void processItem(String projectPackage, String projectDescription, CommandInformation command)
+      throws IOException {
+    var typeElement = (TypeElement) command.argument().element();
+    var className = ClassName.get(typeElement);
 
-  public void generate() throws IOException {
-    var commandArgumentClass = TypeSpec.classBuilder(String.format("%sImpl", className))
+    var commandArgumentClass = TypeSpec.classBuilder(String.format("%sImpl", className.simpleName()))
                                    .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                                   .addSuperinterface(implement);
+                                   .addSuperinterface(typeElement.asType());
 
     for (var option : command.options()) {
       FieldSpec.Builder field;
@@ -55,15 +57,15 @@ public class ArgumentFileWriter {
       commandArgumentClass.addMethod(method.build());
     }
 
-    var toStringMethod = createToString();
+    var toStringMethod = createToString(command);
     commandArgumentClass.addMethod(toStringMethod.build());
 
-    var javaFile = JavaFile.builder(packageName, commandArgumentClass.build()).build();
+    var javaFile = JavaFile.builder(className.packageName(), commandArgumentClass.build()).build();
 
     javaFile.writeTo(filer);
   }
 
-  private MethodSpec.Builder createToString() {
+  private MethodSpec.Builder createToString(CommandInformation command) {
     var methodBuilder = MethodSpec.methodBuilder("toString")
                             .addModifiers(Modifier.PUBLIC)
                             .addStatement("var help = new StringBuilder()")
