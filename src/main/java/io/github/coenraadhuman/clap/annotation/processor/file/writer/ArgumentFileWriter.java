@@ -1,4 +1,4 @@
-package io.github.coenraadhuman.clap.annotation.processor;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer;
 
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
@@ -15,7 +15,7 @@ import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 
 @RequiredArgsConstructor
-public class ArgumentImplBuilder {
+public class ArgumentFileWriter {
 
   private final Filer filer;
   private final String className;
@@ -24,7 +24,7 @@ public class ArgumentImplBuilder {
   private final TypeMirror implement;
   private final CommandInformation command;
 
-  void generate() throws IOException {
+  public void generate() throws IOException {
     var commandArgumentClass = TypeSpec.classBuilder(String.format("%sImpl", className))
                                    .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                                    .addSuperinterface(implement);

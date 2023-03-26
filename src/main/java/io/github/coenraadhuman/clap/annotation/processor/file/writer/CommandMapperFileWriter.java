@@ -1,4 +1,4 @@
-package io.github.coenraadhuman.clap.annotation.processor;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -17,13 +17,13 @@ import java.io.IOException;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class CommandMapperBuilder {
+public class CommandMapperFileWriter {
 
   private final Filer filer;
   private final String packageName;
   private final List<CommandInformation> commands;
 
-  void generate() throws IOException {
+  public void generate() throws IOException {
     var mapMethod = MethodSpec.methodBuilder("map")
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(String[].class, "args")

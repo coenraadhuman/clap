@@ -6,6 +6,9 @@ import io.github.coenraadhuman.clap.ClapApplication;
 import io.github.coenraadhuman.clap.Command;
 import io.github.coenraadhuman.clap.CommandArgument;
 import io.github.coenraadhuman.clap.Option;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.ArgumentFileWriter;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.CommandMapperFileWriter;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.CommandRunnerFileWriter;
 import io.github.coenraadhuman.clap.factory.ClapFactory;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
 
@@ -27,7 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @AutoService(Processor.class)
-public class ClapProcessor extends AbstractProcessor {
+public class ClapAnnotationProcessor extends AbstractProcessor {
 
   private Filer filer;
   private Messager messager;
@@ -54,7 +57,7 @@ public class ClapProcessor extends AbstractProcessor {
                 .options()
                 .sort(Comparator.comparing(optionElement -> optionElement.annotation().shortInput()));
 
-            var builder = new ArgumentImplBuilder(
+            var builder = new ArgumentFileWriter(
                 filer,
                 className.simpleName(),
                 className.packageName(),
@@ -75,7 +78,7 @@ public class ClapProcessor extends AbstractProcessor {
   }
 
   private void createMapper(final ProjectInformation projectInformation) {
-    var mapper = new CommandMapperBuilder(
+    var mapper = new CommandMapperFileWriter(
         filer,
         String.format("%s.mapper", projectInformation.projectPackage()),
         projectInformation.commands()
@@ -102,7 +105,7 @@ public class ClapProcessor extends AbstractProcessor {
       createCommandArguments(projectInformation);
       createMapper(projectInformation);
 
-      var runner = new CommandRunnerBuilder(
+      var runner = new CommandRunnerFileWriter(
           filer,
           projectInformation.projectPackage(),
           projectInformation.projectDescription(),

@@ -1,17 +1,17 @@
-package io.github.coenraadhuman.clap.service.impl;
+package io.github.coenraadhuman.clap.annotation.processor.information.reader.impl;
 
 import com.squareup.javapoet.ClassName;
 import io.github.coenraadhuman.clap.ClapApplication;
 import io.github.coenraadhuman.clap.Command;
 import io.github.coenraadhuman.clap.CommandArgument;
 import io.github.coenraadhuman.clap.Option;
+import io.github.coenraadhuman.clap.annotation.processor.information.reader.ProjectInformationReader;
 import io.github.coenraadhuman.clap.model.CommandArgumentClass;
 import io.github.coenraadhuman.clap.model.CommandArgumentElement;
 import io.github.coenraadhuman.clap.model.CommandElement;
 import io.github.coenraadhuman.clap.model.CommandInformation;
 import io.github.coenraadhuman.clap.model.OptionElement;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
-import io.github.coenraadhuman.clap.service.InformationService;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.processing.RoundEnvironment;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
-public class InformationServiceImpl implements InformationService {
+public class ProjectInformationReaderImpl implements ProjectInformationReader {
 
   private static final String PACKAGE_KEY = "project-package";
   private static final String DESCRIPTION_KEY = "project-description";

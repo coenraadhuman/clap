@@ -1,4 +1,4 @@
-package io.github.coenraadhuman.clap.annotation.processor;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -17,14 +17,14 @@ import java.io.IOException;
 import java.util.List;
 
 @RequiredArgsConstructor
-public class CommandRunnerBuilder {
+public class CommandRunnerFileWriter {
 
   private final Filer filer;
   private final String packageName;
   private final String projectDescription;
   private final List<CommandInformation> commands;
 
-  void generate() throws IOException {
+  public void generate() throws IOException {
     var isSpring = usingSpring(commands);
 
     var clapCommandMapper = TypeSpec.classBuilder("ClapCommandRunner")

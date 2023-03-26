@@ -1,7 +1,7 @@
 package io.github.coenraadhuman.clap.factory;
 
-import io.github.coenraadhuman.clap.service.InformationService;
-import io.github.coenraadhuman.clap.service.impl.InformationServiceImpl;
+import io.github.coenraadhuman.clap.annotation.processor.information.reader.ProjectInformationReader;
+import io.github.coenraadhuman.clap.annotation.processor.information.reader.impl.ProjectInformationReaderImpl;
 import lombok.RequiredArgsConstructor;
 
 import javax.lang.model.util.Elements;
@@ -12,8 +12,9 @@ public class ClapFactory {
 
   private final Elements elementUtils;
 
-  public InformationService getInformationService() {
-    final Supplier<InformationService> informationServiceSupplier = () -> new InformationServiceImpl(elementUtils);
+  public ProjectInformationReader getInformationService() {
+    final Supplier<ProjectInformationReader> informationServiceSupplier =
+        () -> new ProjectInformationReaderImpl(elementUtils);
     return informationServiceSupplier.get();
   }
 
