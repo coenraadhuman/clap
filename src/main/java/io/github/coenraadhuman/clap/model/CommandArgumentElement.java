@@ -4,6 +4,9 @@ import io.github.coenraadhuman.clap.CommandArgument;
 
 import javax.lang.model.element.Element;
 
-public record CommandArgumentContainer(Element element, CommandArgument annotation) {
+public record CommandArgumentElement(
+    Element element,
+    CommandArgument annotation
+) {
 
 }

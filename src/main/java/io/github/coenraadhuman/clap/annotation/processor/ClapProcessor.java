@@ -6,10 +6,8 @@ import io.github.coenraadhuman.clap.ClapApplication;
 import io.github.coenraadhuman.clap.Command;
 import io.github.coenraadhuman.clap.CommandArgument;
 import io.github.coenraadhuman.clap.Option;
-import io.github.coenraadhuman.clap.model.CommandArgumentClassContainer;
-import io.github.coenraadhuman.clap.model.CommandArgumentContainer;
-import io.github.coenraadhuman.clap.model.CommandContainer;
-import io.github.coenraadhuman.clap.model.OptionContainer;
+import io.github.coenraadhuman.clap.factory.ClapFactory;
+import io.github.coenraadhuman.clap.model.ProjectInformation;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -19,18 +17,13 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @AutoService(Processor.class)
@@ -50,72 +43,23 @@ public class ClapProcessor extends AbstractProcessor {
     elements = processingEnv.getElementUtils();
   }
 
-  private void processCommandArguments(
-      Map<String, CommandArgumentClassContainer> commandArguments, RoundEnvironment roundEnvironment
-  ) {
-    for (var annotatedElement : roundEnvironment.getElementsAnnotatedWith(CommandArgument.class)) {
-      // Todo: check that we extends CommandArgumentProcessor:
-      if (annotatedElement.getKind() != ElementKind.INTERFACE) {
-        error("Only an interface can be annotated with CommandArgument", annotatedElement);
-        throw new RuntimeException("Only an interface can be annotated with CommandArgument");
-      }
 
-      var key = getKey(annotatedElement);
-
-      commandArguments.put(
-          key,
-          new CommandArgumentClassContainer(
-              new CommandArgumentContainer(annotatedElement, annotatedElement.getAnnotation(CommandArgument.class)),
-              new ArrayList<>()
-          )
-      );
-
-      for (var enclosedElement : annotatedElement.getEnclosedElements()) {
-        if (enclosedElement.getKind() == ElementKind.METHOD) {
-          var option = enclosedElement.getAnnotation(Option.class);
-          if (option != null) {
-            commandArguments.get(key).options().add(new OptionContainer(enclosedElement, option));
-          }
-        }
-      }
-    }
-  }
-
-  private void processCommands(
-      List<CommandContainer> commands, RoundEnvironment roundEnvironment
-  ) {
-    for (var annotatedElement : roundEnvironment.getElementsAnnotatedWith(Command.class)) {
-      // Todo: check if correct interface is implemented
-      if (annotatedElement.getKind() != ElementKind.CLASS) {
-        error("Only a class can be annotated with Command", annotatedElement);
-        throw new RuntimeException("Only a class can be annotated with Command");
-      }
-
-      commands.add(
-          new CommandContainer(
-              annotatedElement.getAnnotation(Command.class),
-              annotatedElement
-          )
-      );
-    }
-  }
-
-  private void createCommandArguments(Map<String, CommandArgumentClassContainer> commandArguments) {
+  private void createCommandArguments(final ProjectInformation projectInformation) {
     try {
-      commandArguments.forEach((key, commandArgument) -> {
-            var typeElement = (TypeElement) commandArgument.commandArgument().element();
+      projectInformation.commands().forEach(command -> {
+            var typeElement = (TypeElement) command.argument().element();
             var className = ClassName.get(typeElement);
 
-            commandArgument
+            command
                 .options()
-                .sort(Comparator.comparing(optionContainer -> optionContainer.annotation().shortInput()));
+                .sort(Comparator.comparing(optionElement -> optionElement.annotation().shortInput()));
 
             var builder = new ArgumentImplBuilder(
                 filer,
                 className.simpleName(),
                 className.packageName(),
                 typeElement.asType(),
-                commandArgument
+                command
             );
 
             try {
@@ -130,11 +74,11 @@ public class ClapProcessor extends AbstractProcessor {
     }
   }
 
-  private void createMapper(Map<String, CommandArgumentClassContainer> commandArguments, String projectPackage) {
+  private void createMapper(final ProjectInformation projectInformation) {
     var mapper = new CommandMapperBuilder(
         filer,
-        String.format("%s.mapper", projectPackage),
-        commandArguments
+        String.format("%s.mapper", projectInformation.projectPackage()),
+        projectInformation.commands()
     );
 
     try {
@@ -146,35 +90,23 @@ public class ClapProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
-    var projectPackage = "io.github.coenraadhuman.clap";
-    var projectDescription = "";
+    // Create factory:
+    var factory = new ClapFactory(elements);
+    var informationService = factory.getInformationService();
 
-    var annotations = roundEnvironment.getElementsAnnotatedWith(ClapApplication.class);
+    // Get project data to process:
+    var projectInformation = informationService.retrieve(roundEnvironment);
 
-    for (var foundAnnotation : annotations) {
-      projectPackage = elements.getPackageOf(foundAnnotation).getQualifiedName().toString();
-      projectDescription = foundAnnotation.getAnnotation(ClapApplication.class).description();
-    }
+    // Create source files:
+    if (projectInformation.commands().size() > 0) {
+      createCommandArguments(projectInformation);
+      createMapper(projectInformation);
 
-    var commandArguments = new HashMap<String, CommandArgumentClassContainer>();
-    var commands = new ArrayList<CommandContainer>();
-
-    processCommandArguments(commandArguments, roundEnvironment);
-
-    processCommands(commands, roundEnvironment);
-
-    if (commandArguments.size() > 0) {
-      createCommandArguments(commandArguments);
-      createMapper(commandArguments, projectPackage);
-    }
-
-    if (commands.size() > 0) {
       var runner = new CommandRunnerBuilder(
           filer,
-          projectPackage,
-          projectDescription,
-          commandArguments,
-          commands
+          projectInformation.projectPackage(),
+          projectInformation.projectDescription(),
+          projectInformation.commands()
       );
 
       try {
@@ -187,11 +119,6 @@ public class ClapProcessor extends AbstractProcessor {
     return false;
   }
 
-  private String getKey(Element element) {
-    var typeElement = (TypeElement) element;
-    var className = ClassName.get(typeElement);
-    return className.canonicalName();
-  }
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {

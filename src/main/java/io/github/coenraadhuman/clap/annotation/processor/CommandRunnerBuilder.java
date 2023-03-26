@@ -6,8 +6,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandRunner;
-import io.github.coenraadhuman.clap.model.CommandArgumentClassContainer;
-import io.github.coenraadhuman.clap.model.CommandContainer;
+import io.github.coenraadhuman.clap.model.CommandInformation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,8 +15,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 @RequiredArgsConstructor
 public class CommandRunnerBuilder {
@@ -25,8 +22,7 @@ public class CommandRunnerBuilder {
   private final Filer filer;
   private final String packageName;
   private final String projectDescription;
-  private final Map<String, CommandArgumentClassContainer> commandArguments;
-  private final List<CommandContainer> commands;
+  private final List<CommandInformation> commands;
 
   void generate() throws IOException {
     var isSpring = usingSpring(commands);
@@ -57,28 +53,28 @@ public class CommandRunnerBuilder {
     var sprintConstructor = MethodSpec.constructorBuilder()
                                 .addModifiers(Modifier.PUBLIC);
 
-    commandArguments.forEach((key, commandArgument) -> {
-      var argumentInterface = ClassName.get((TypeElement) commandArgument.commandArgument().element()).canonicalName();
-      var command = findCommand(argumentInterface);
-
+    commands.forEach(command -> {
       var commandVariableName =
-          ClassName.get((TypeElement) command.element()).simpleName().substring(0, 1).toLowerCase()
-              + ClassName.get((TypeElement) command.element()).simpleName().substring(1);
+          ClassName.get((TypeElement) command.command().element()).simpleName().substring(0, 1).toLowerCase()
+              + ClassName.get((TypeElement) command.command().element()).simpleName().substring(1);
 
       executeMethod.beginControlFlow(
-          String.format("if (argumentResult instanceof %s argument)", argumentInterface)
+          String.format("if (argumentResult instanceof %s argument)", command.argumentClassSimpleName())
       );
 
       if (isSpring) {
-        sprintConstructor.addParameter(TypeName.get(command.element().asType()), commandVariableName)
+        sprintConstructor.addParameter(TypeName.get(command.command().element().asType()), commandVariableName)
             .addStatement(String.format("this.%s = %s", commandVariableName, commandVariableName));
 
-        clapCommandMapper.addField(TypeName.get(command.element().asType()), commandVariableName, Modifier.PRIVATE,
-            Modifier.FINAL);
+        clapCommandMapper.addField(TypeName.get(command.command().element().asType()),
+            commandVariableName,
+            Modifier.PRIVATE,
+            Modifier.FINAL
+        );
       } else {
         executeMethod.addStatement(String.format("var %s = new %s()",
             commandVariableName,
-            ClassName.get((TypeElement) command.element()).canonicalName()
+            ClassName.get((TypeElement) command.command().element()).canonicalName()
         ));
       }
 
@@ -118,35 +114,14 @@ public class CommandRunnerBuilder {
     javaFile.writeTo(filer);
   }
 
-  private boolean usingSpring(List<CommandContainer> commands) {
+  private boolean usingSpring(List<CommandInformation> commands) {
     for (var command : commands) {
-      var dependencyInjection = command.command().componentModel();
+      var dependencyInjection = command.command().command().componentModel();
       if ("spring".equals(dependencyInjection)) {
         return true;
       }
     }
     return false;
-  }
-
-
-  private CommandContainer findCommand(String commandArgumentCanonicalName) {
-    var retrieved = new AtomicReference<CommandContainer>();
-    for (var command : commands) {
-      command.element().getAnnotationMirrors().forEach(annotationMirror -> {
-        annotationMirror.getElementValues().forEach(
-            (executableElement, annotationValue) -> {
-              if (executableElement.toString().equals("argument()")
-                      && annotationValue.toString().replace(".class", "").equals(commandArgumentCanonicalName)) {
-                retrieved.set(command);
-              }
-            }
-        );
-      });
-    }
-    if (retrieved.get() != null) {
-      return retrieved.get();
-    }
-    throw new RuntimeException("Argument must have associated command");
   }
 
   private MethodSpec.Builder createToString() {
@@ -161,14 +136,11 @@ public class CommandRunnerBuilder {
 
     methodBuilder.addStatement("help.append(\"Commands:\\n\")");
 
-    commandArguments.forEach((key, commandArgument) -> {
-      var argumentInterface = ClassName.get((TypeElement) commandArgument.commandArgument().element()).canonicalName();
-      var command = findCommand(argumentInterface);
-
+    commands.forEach(command -> {
       // Todo: make this dynamic and calculate width that would fit given information.
       methodBuilder.addStatement(
-          "help.append(String.format(\"  %-25s %s\", \"" + commandArgument.commandArgument().annotation().input()
-              + "\",\"" + command.command().description() + "\\n\"))"
+          "help.append(String.format(\"  %-25s %s\", \"" + command.argument().annotation().input()
+              + "\",\"" + command.command().command().description() + "\\n\"))"
       );
     });
 

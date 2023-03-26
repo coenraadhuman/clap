@@ -7,21 +7,21 @@ import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandArgumentProcessor;
 import io.github.coenraadhuman.clap.CommandMapper;
 import io.github.coenraadhuman.clap.mapper.CommandMapperBase;
-import io.github.coenraadhuman.clap.model.CommandArgumentClassContainer;
+import io.github.coenraadhuman.clap.model.CommandInformation;
 import lombok.RequiredArgsConstructor;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.io.IOException;
-import java.util.Map;
+import java.util.List;
 
 @RequiredArgsConstructor
 public class CommandMapperBuilder {
 
   private final Filer filer;
   private final String packageName;
-  private final Map<String, CommandArgumentClassContainer> commandArguments;
+  private final List<CommandInformation> commands;
 
   void generate() throws IOException {
     var mapMethod = MethodSpec.methodBuilder("map")
@@ -34,15 +34,15 @@ public class CommandMapperBuilder {
         .addStatement("return null")
         .endControlFlow();
 
-    commandArguments.forEach((key, commandArgument) -> {
+    commands.forEach(command -> {
       mapMethod.beginControlFlow(
-          String.format("if (\"%s\".equals(args[0]))", commandArgument.commandArgument().annotation().input())
+          String.format("if (\"%s\".equals(args[0]))", command.argument().annotation().input())
       );
 
       mapMethod.addStatement(String.format("var command = new %sImpl()",
-          ClassName.get((TypeElement) commandArgument.commandArgument().element()).canonicalName()));
+          ClassName.get((TypeElement) command.argument().element()).canonicalName()));
 
-      for (var option : commandArgument.options()) {
+      for (var option : command.options()) {
         if (option.annotation().providesValue()) {
           mapMethod.addStatement(String.format("command.%s = findOptionProvidedValue(args, \"%s\", \"%s\")",
               option.element().getSimpleName().toString(),
