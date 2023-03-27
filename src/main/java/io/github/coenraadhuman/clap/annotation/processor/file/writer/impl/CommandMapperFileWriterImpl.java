@@ -6,7 +6,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandArgumentProcessor;
 import io.github.coenraadhuman.clap.CommandMapper;
-import io.github.coenraadhuman.clap.annotation.processor.file.writer.MultipleCommandsFileWriterBase;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.common.MultipleCommandsFileWriterBase;
 import io.github.coenraadhuman.clap.mapper.CommandMapperBase;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +67,8 @@ public class CommandMapperFileWriterImpl extends MultipleCommandsFileWriterBase 
           ));
         }
       }
+
+      mapMethod.addStatement("command.help = findOption(args, \"-h\", \"--help\")");
 
       mapMethod.addStatement("return command")
           .endControlFlow();

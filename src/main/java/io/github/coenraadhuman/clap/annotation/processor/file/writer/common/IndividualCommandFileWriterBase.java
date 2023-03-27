@@ -1,5 +1,6 @@
-package io.github.coenraadhuman.clap.annotation.processor.file.writer;
+package io.github.coenraadhuman.clap.annotation.processor.file.writer.common;
 
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.FileWriter;
 import io.github.coenraadhuman.clap.model.CommandInformation;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
 

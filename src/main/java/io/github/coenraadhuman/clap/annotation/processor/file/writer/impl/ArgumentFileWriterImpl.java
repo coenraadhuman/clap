@@ -6,7 +6,7 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import io.github.coenraadhuman.clap.annotation.processor.file.writer.IndividualCommandFileWriterBase;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.common.IndividualCommandFileWriterBase;
 import io.github.coenraadhuman.clap.model.CommandInformation;
 import io.github.coenraadhuman.clap.model.StringOption;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +57,8 @@ public class ArgumentFileWriterImpl extends IndividualCommandFileWriterBase {
       commandArgumentClass.addMethod(method.build());
     }
 
+    addDefaultHelp(commandArgumentClass);
+
     var toStringMethod = createToString(command);
     commandArgumentClass.addMethod(toStringMethod.build());
 
@@ -64,6 +66,20 @@ public class ArgumentFileWriterImpl extends IndividualCommandFileWriterBase {
 
     javaFile.writeTo(filer);
   }
+
+  private void addDefaultHelp(TypeSpec.Builder commandArgumentClass) {
+    var field = FieldSpec.builder(TypeName.BOOLEAN, "help", Modifier.PUBLIC);
+
+    var method = MethodSpec.methodBuilder("help")
+                     .addModifiers(Modifier.PUBLIC)
+                     .addAnnotation(Override.class)
+                     .addStatement("return help")
+                     .returns(TypeName.BOOLEAN);
+
+    commandArgumentClass.addField(field.build());
+    commandArgumentClass.addMethod(method.build());
+  }
+
 
   private MethodSpec.Builder createToString(CommandInformation command) {
     var methodBuilder = MethodSpec.methodBuilder("toString")
@@ -77,12 +93,19 @@ public class ArgumentFileWriterImpl extends IndividualCommandFileWriterBase {
 
     for (var option : command.options()) {
       // Todo: make this dynamic and calculate width that would fit given information.
+      if (option.annotation().shortInput().equals("-h") || option.annotation().longInput().equals("--help")) {
+        throw new RuntimeException("Option with -h and --help is reserved for printing help menu.");
+      }
       methodBuilder.addStatement(
           "help.append(String.format(\"  %-5s%-20s %s\", \"" + option.annotation().shortInput() + ",\",\""
               + option.annotation().longInput()
               + "\",\"" + option.annotation().description() + "\\n\"))"
       );
     }
+
+    methodBuilder.addStatement(
+        "help.append(String.format(\"  %-5s%-20s %s\", \"-h,\",\"--help\",\"Prints help\\n\"))"
+    );
 
     methodBuilder
         .addStatement("return help.toString()")

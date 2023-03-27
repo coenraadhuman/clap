@@ -6,7 +6,7 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandRunner;
-import io.github.coenraadhuman.clap.annotation.processor.file.writer.MultipleCommandsFileWriterBase;
+import io.github.coenraadhuman.clap.annotation.processor.file.writer.common.MultipleCommandsFileWriterBase;
 import io.github.coenraadhuman.clap.model.CommandInformation;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +41,9 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
                             .addAnnotation(Override.class);
 
     executeMethod.beginControlFlow("try");
+
+    executeMethod.beginControlFlow("if (args.length != 0)");
+    executeMethod.beginControlFlow("if (!args[0].equals(\"-h\") && !args[0].equals(\"--help\"))");
 
     executeMethod.addStatement(
         String.format("var mapper = new %s.mapper.ClapArgumentMapper()", projectInformation.projectPackage())
@@ -81,13 +84,18 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
             ClassName.get((TypeElement) command.command().element()).canonicalName()
         ));
       }
-
-      executeMethod.beginControlFlow("try")
+      executeMethod
+          .beginControlFlow("if (argument.help())")
+          .addStatement("System.out.println(argument)")
+          .addStatement("executed = true")
+          .nextControlFlow("else")
+          .beginControlFlow("try")
           .addStatement(String.format("%s.process(argument)", commandVariableName))
           .addStatement("executed = true")
           .nextControlFlow("catch (Exception e)")
           .addStatement("System.out.println(argument)")
           .addStatement("throw e")
+          .endControlFlow()
           .endControlFlow()
           .endControlFlow();
     });
@@ -100,6 +108,14 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
     if (isSpring) {
       clapCommandMapper.addMethod(sprintConstructor.build());
     }
+
+    executeMethod.nextControlFlow("else")
+        .addStatement("System.out.println(toString())")
+        .endControlFlow();
+
+    executeMethod.nextControlFlow("else")
+        .addStatement("System.out.println(toString())")
+        .endControlFlow();
 
     executeMethod.nextControlFlow("catch (Exception e)")
         .addStatement("System.out.println(String.format(\"\\nError: %s\", e.getMessage()))")
@@ -142,13 +158,19 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
 
     methodBuilder.addStatement("help.append(\"Commands:\\n\")");
 
-    projectInformation.commands().forEach(command -> {
+    for (int i = 0; i < projectInformation.commands().size(); i++) {
       // Todo: make this dynamic and calculate width that would fit given information.
       methodBuilder.addStatement(
-          "help.append(String.format(\"  %-25s %s\", \"" + command.argument().annotation().input()
-              + "\",\"" + command.command().command().description() + "\\n\"))"
+          "help.append(String.format(\"  %-25s %s\", \""
+              + projectInformation.commands().get(i).argument().annotation().input()
+              + "\",\"" + projectInformation.commands().get(i).command().command().description()
+              + (i == (projectInformation.commands().size() - 1) ? "\\n\\n\"))" : "\\n\"))")
       );
-    });
+    }
+
+    methodBuilder.addStatement("help.append(\"Options:\\n\")")
+        .addStatement("help.append(String.format(\"  %-5s%-20s %s\", \"-h,\",\"--help\",\"Prints help\\n\"))");
+
 
     methodBuilder
         .addStatement("return help.toString()")
