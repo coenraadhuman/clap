@@ -8,6 +8,7 @@ import com.squareup.javapoet.TypeSpec;
 import io.github.coenraadhuman.clap.CommandRunner;
 import io.github.coenraadhuman.clap.annotation.processor.file.writer.common.MultipleCommandsFileWriterBase;
 import io.github.coenraadhuman.clap.model.CommandInformation;
+import io.github.coenraadhuman.clap.model.OptionValue;
 import io.github.coenraadhuman.clap.model.ProjectInformation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,11 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+
+import static io.github.coenraadhuman.clap.common.SpaceConstants.AFTER_SHORT_INPUT;
+import static io.github.coenraadhuman.clap.common.SpaceConstants.BEFORE_DESCRIPTION;
 
 @RequiredArgsConstructor
 public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase {
@@ -28,17 +33,17 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
     var isSpring = usingSpring(projectInformation.commands());
 
     var clapCommandMapper = TypeSpec.classBuilder("ClapCommandRunner")
-                                .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                                .addSuperinterface(CommandRunner.class);
+        .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+        .addSuperinterface(CommandRunner.class);
 
     if (isSpring) {
       clapCommandMapper.addAnnotation(Component.class);
     }
 
     var executeMethod = MethodSpec.methodBuilder("execute")
-                            .addModifiers(Modifier.PUBLIC)
-                            .addParameter(String[].class, "args")
-                            .addAnnotation(Override.class);
+        .addModifiers(Modifier.PUBLIC)
+        .addParameter(String[].class, "args")
+        .addAnnotation(Override.class);
 
     executeMethod.beginControlFlow("try");
 
@@ -58,7 +63,7 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
         .endControlFlow();
 
     var sprintConstructor = MethodSpec.constructorBuilder()
-                                .addModifiers(Modifier.PUBLIC);
+        .addModifiers(Modifier.PUBLIC);
 
     projectInformation.commands().forEach(command -> {
       var commandVariableName =
@@ -148,9 +153,14 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
 
   private MethodSpec.Builder createToString(ProjectInformation projectInformation) {
     var methodBuilder = MethodSpec.methodBuilder("toString")
-                            .addModifiers(Modifier.PUBLIC)
-                            .addAnnotation(Override.class)
-                            .addStatement("var help = new StringBuilder()");
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .addStatement("var help = new StringBuilder()");
+
+    var largestLongInput = 0;
+    var largestShortInput = 0;
+    var largestOption = 0;
+    var largestCommand = 0;
 
     if (projectInformation.projectDescription().length() > 0) {
       methodBuilder.addStatement(String.format("help.append(\"%s\\n\\n\")", projectInformation.projectDescription()));
@@ -158,19 +168,57 @@ public class CommandRunnerFileWriterImpl extends MultipleCommandsFileWriterBase 
 
     methodBuilder.addStatement("help.append(\"Commands:\\n\")");
 
+    for (var command : projectInformation.commands()) {
+      largestCommand = Math.max(largestCommand, command.argument().annotation().input().length());
+    }
+
+    var optionValues = new ArrayList<OptionValue>();
+
+    optionValues.add(
+        new OptionValue(
+            "Prints help",
+            "-h",
+            "--help",
+            false
+        )
+    );
+
+    for (var optionValue : optionValues) {
+      largestLongInput = Math.max(largestLongInput, optionValue.longInput().length());
+      largestShortInput = Math.max(largestShortInput, optionValue.shortInput().replace("-", "").length());
+      largestOption = Math.max(
+          largestOption,
+          (optionValue.shortInput().length() + AFTER_SHORT_INPUT + optionValue.longInput().length())
+      );
+    }
+
+    largestCommand = Math.max(largestCommand, largestOption);
+
     for (int i = 0; i < projectInformation.commands().size(); i++) {
-      // Todo: make this dynamic and calculate width that would fit given information.
       methodBuilder.addStatement(
-          "help.append(String.format(\"  %-25s %s\", \""
+          "help.append(String.format(\"  %-" + (largestCommand + BEFORE_DESCRIPTION) + "s %s\", \""
               + projectInformation.commands().get(i).argument().annotation().input()
               + "\",\"" + projectInformation.commands().get(i).command().command().description()
               + (i == (projectInformation.commands().size() - 1) ? "\\n\\n\"))" : "\\n\"))")
       );
     }
 
-    methodBuilder.addStatement("help.append(\"Options:\\n\")")
-        .addStatement("help.append(String.format(\"  %-5s%-20s %s\", \"-h,\",\"--help\",\"Prints help\\n\"))");
+    final int finalLargestShortInput = largestShortInput;
+    optionValues.sort((optionValueA, optionValueB) -> optionValueA.compareTo(
+        optionValueB.toOptionValueComparer(finalLargestShortInput))
+    );
 
+    methodBuilder.addStatement("help.append(\"Options:\\n\")");
+
+    for (var optionValue : optionValues) {
+      methodBuilder.addStatement(
+          "help.append(String.format(\"  %-" + (largestShortInput + AFTER_SHORT_INPUT) + "s%-"
+              + (largestLongInput + BEFORE_DESCRIPTION) + "s %s\", \""
+              + optionValue.shortInput() + ",\",\""
+              + optionValue.longInput()
+              + "\",\"" + optionValue.description() + "\\n\"))"
+      );
+    }
 
     methodBuilder
         .addStatement("return help.toString()")
